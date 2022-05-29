@@ -24,18 +24,20 @@ pub struct Options {
     pub size_exp: usize,
 }
 
-pub struct Encoder<I>
+pub struct Encoder<S, I>
 where
-    I: Iterator<Item = i16>,
+    S: hound::Sample,
+    I: Iterator<Item = S>,
 {
     iter: I,
     options: Options,
     index: BigUint,
 }
 
-impl<I> Encoder<I>
+impl<S, I> Encoder<S, I>
 where
-    I: Iterator<Item = i16>,
+    S: hound::Sample,
+    I: Iterator<Item = S>,
 {
     pub fn new(iter: I, options: Options) -> Self {
         Encoder {
@@ -54,9 +56,10 @@ where
     }
 }
 
-impl<I> Iterator for Encoder<I>
+impl<S, I> Iterator for Encoder<S, I>
 where
-    I: Iterator<Item = i16>,
+    S: hound::Sample,
+    I: Iterator<Item = S>,
 {
     type Item = ([u32; 2], image::Rgba<u8>);
 
@@ -73,7 +76,7 @@ where
             self.index += BigUint::one();
 
             let hue =
-                (sample as f32 + 2u32.pow(15) as f32) / (2u32.pow(16) as f32);
+                (sample.as_i16() as f32 + 2u32.pow(15) as f32) / (2u32.pow(16) as f32);
 
             let rgb: Rgba = hsv(hue, 1.0, 1.0).into();
 
@@ -97,12 +100,13 @@ where
     }
 }
 
-pub fn encode_image<I>(
+pub fn encode_image<S, I>(
     iter: I,
     options: Options,
 ) -> image::ImageBuffer<image::Rgba<u8>, Vec<u8>>
 where
-    I: Iterator<Item = i16>,
+    S: hound::Sample,
+    I: Iterator<Item = S>,
 {
     let mut encoder = Encoder::new(iter, options);
     let mut image =

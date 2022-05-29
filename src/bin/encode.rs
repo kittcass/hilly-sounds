@@ -22,16 +22,24 @@ struct Args {
 fn main() {
     let args = Args::parse();
 
-    let output_file = args.output_file.unwrap_or_else(|| {
-        args.input_file.with_extension("png")
-    });
+    let output_file = args
+        .output_file
+        .unwrap_or_else(|| args.input_file.with_extension("png"));
 
     let mut reader =
         WavReader::open(args.input_file).expect("could not read WAV file");
-    let image = encode_image(
-        reader.samples().map_while(Result::ok),
-        args.options,
-    );
+
+    // TODO handle errors
+    let image = match reader.spec().sample_format {
+        hound::SampleFormat::Float => encode_image(
+            reader.samples::<f32>().map_while(Result::ok),
+            args.options,
+        ),
+        hound::SampleFormat::Int => encode_image(
+            reader.samples::<i16>().map_while(Result::ok),
+            args.options,
+        ),
+    };
     image
         .save_with_format(output_file, ImageFormat::Png)
         .expect("could not save PNG");
