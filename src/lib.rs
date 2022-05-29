@@ -1,3 +1,6 @@
+#[cfg(feature = "binary")]
+use clap::Parser;
+
 use hilbert::fast_hilbert::hilbert_axes;
 use nannou::{
     color::{hsv, Rgba},
@@ -10,15 +13,15 @@ use num_bigint::BigUint;
 // so far, this algorithm operates independently of the curve, so maybe it
 // should be decoupled? much to think about...
 
-#[derive(Copy, Clone)]
-pub struct Options {
-    pub size_exp: usize,
-}
+// TODO maybe pass sizes as actual values and infer exp instead, validating that
+// they are power of two
 
-impl Default for Options {
-    fn default() -> Self {
-        Self { size_exp: 9 }
-    }
+#[derive(Copy, Clone)]
+#[cfg_attr(feature = "binary", derive(Parser))]
+pub struct Options {
+    /// The exponent of the side length (2^n).
+    #[cfg_attr(feature = "binary", clap(long, default_value_t = 9))]
+    pub size_exp: usize,
 }
 
 pub struct Encoder<I>
