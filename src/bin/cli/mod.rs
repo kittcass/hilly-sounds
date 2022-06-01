@@ -3,7 +3,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use anyhow::Context;
+use anyhow::{bail, Context};
 use clap::{ArgEnum, Parser, Subcommand};
 use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
@@ -261,16 +261,27 @@ fn encode(
     let mut reader = WavReader::open(input_file)?;
 
     let image = match reader.spec().sample_format {
-        hound::SampleFormat::Float => encode_image(
-            reader.samples::<f32>().map_while(Result::ok),
-            color_strategy,
-            space_strategy,
-        ),
-        hound::SampleFormat::Int => encode_image(
-            reader.samples::<i16>().map_while(Result::ok),
-            color_strategy,
-            space_strategy,
-        ),
+        hound::SampleFormat::Float => match reader.spec().bits_per_sample {
+            16 => encode_image(
+                reader.samples::<f32>().map_while(Result::ok),
+                color_strategy,
+                space_strategy,
+            ),
+            bps => bail!("unsupported number of bits per sample: {}", bps),
+        },
+        hound::SampleFormat::Int => match reader.spec().bits_per_sample {
+            16 => encode_image(
+                reader.samples::<i16>().map_while(Result::ok),
+                color_strategy,
+                space_strategy,
+            ),
+            32 => encode_image(
+                reader.samples::<i32>().map_while(Result::ok),
+                color_strategy,
+                space_strategy,
+            ),
+            bps => bail!("unsupported number of bits per sample: {}", bps),
+        },
     };
 
     image

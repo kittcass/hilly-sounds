@@ -188,6 +188,16 @@ impl SampleConvert for i16 {
     }
 }
 
+impl SampleConvert for i32 {
+    fn convert_to_i16(self) -> i16 {
+        (self / 2) as i16
+    }
+
+    fn convert_to_f32(self) -> f32 {
+        self as f32 / 65536.0
+    }
+}
+
 impl SampleConvert for f32 {
     fn convert_to_i16(self) -> i16 {
         (self * 32768.0) as i16

@@ -28,7 +28,7 @@ features = ["derive"]
 optional = true
 
 [[bin]]
-name = "cli"
+name = "hscli"
 path = "src/bin/cli/mod.rs"
 required-features = ["binary", "toml"]
 
