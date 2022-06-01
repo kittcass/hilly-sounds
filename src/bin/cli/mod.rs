@@ -3,6 +3,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use anyhow::Context;
 use clap::{ArgEnum, Parser, Subcommand};
 use hound::{WavReader, WavSpec, WavWriter};
 use nannou::image::{self, ImageFormat};
@@ -105,15 +106,15 @@ enum DumpFormat {
 fn main() -> anyhow::Result<()> {
     let args = Args::parse();
 
-    // TODO default preset
-
     // TODO handle validation errors
     let preset = if let Some(preset_path) = args.preset_path {
-        let preset_toml = fs::read_to_string(preset_path)?;
-        let preset: Preset = toml::from_str(&preset_toml)?;
+        let preset_toml = fs::read_to_string(preset_path)
+            .context("failed to read preset file")?;
+        let preset: Preset = toml::from_str(&preset_toml)
+            .context("failed to parse TOML in preset file")?;
         preset
     } else {
-        todo!()
+        todo!("default preset")
     };
 
     let (color_strategy, space_strategy) =
@@ -133,7 +134,8 @@ fn main() -> anyhow::Result<()> {
                 *open,
                 color_strategy,
                 space_strategy,
-            )?;
+            )
+            .context("failed to run encoder")?;
         }
         Command::Decode {
             input_file,
@@ -155,7 +157,8 @@ fn main() -> anyhow::Result<()> {
                 wav_spec,
                 color_strategy,
                 space_strategy,
-            )?;
+            )
+            .context("failed to run deocder")?;
         }
         Command::DecodePlay {
             input_file: _,
@@ -163,7 +166,8 @@ fn main() -> anyhow::Result<()> {
             list_devices: _,
         } => todo!(),
         Command::DumpPreset { format, pretty } => {
-            dump_preset(&preset, *format, *pretty)?
+            dump_preset(&preset, *format, *pretty)
+                .context("failed to dump preset")?;
         }
     }
 
