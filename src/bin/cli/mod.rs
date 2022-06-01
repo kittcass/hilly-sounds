@@ -5,12 +5,17 @@ use std::{
 
 use anyhow::Context;
 use clap::{ArgEnum, Parser, Subcommand};
+use cpal::{
+    traits::{DeviceTrait, HostTrait, StreamTrait},
+    Device,
+};
 use hound::{WavReader, WavSpec, WavWriter};
 use nannou::image::{self, ImageFormat};
 
 use hilly_sounds::{
     decode_image, encode_image,
     strategy::{ColorStrategy, SpaceStrategy},
+    Decoder,
 };
 
 mod preset;
@@ -74,6 +79,14 @@ enum Command {
     DecodePlay {
         /// Path to the input PNG file..
         input_file: PathBuf,
+
+        /// The number of channels to output to.
+        #[clap(short, long, default_value_t = 2)]
+        channels: u16,
+
+        /// The sample rate to output to.
+        #[clap(short, long, default_value_t = 48000)]
+        sample_rate: u32,
 
         /// The output audio device with which to play the file.
         #[clap(short, long)]
@@ -161,10 +174,48 @@ fn main() -> anyhow::Result<()> {
             .context("failed to run deocder")?;
         }
         Command::DecodePlay {
-            input_file: _,
-            device: _,
-            list_devices: _,
-        } => todo!(),
+            input_file,
+            channels,
+            sample_rate,
+            device,
+            list_devices,
+        } => {
+            let host = cpal::default_host();
+
+            if *list_devices {
+                for device in host.output_devices()? {
+                    println!("{}", device.name()?);
+                }
+            } else {
+                let device = if let Some(device_name) = device {
+                    host.output_devices()?.find(|d| {
+                        d.name()
+                            .map(|name| name == *device_name)
+                            .unwrap_or_default()
+                    })
+                } else {
+                    host.default_output_device()
+                }
+                .context("failed to find output device")?;
+
+                let _config: cpal::SupportedStreamConfig = device
+                    .default_output_config()
+                    .context("failed to fo find default output config")?;
+                let config = cpal::StreamConfig {
+                    channels: *channels,
+                    sample_rate: cpal::SampleRate(*sample_rate),
+                    buffer_size: cpal::BufferSize::Default,
+                };
+
+                decode_play(
+                    input_file,
+                    &device,
+                    &config,
+                    color_strategy,
+                    space_strategy,
+                )?;
+            }
+        }
         Command::DumpPreset { format, pretty } => {
             dump_preset(&preset, *format, *pretty)
                 .context("failed to dump preset")?;
@@ -204,8 +255,8 @@ fn encode(
     input_file: &Path,
     output_file: &Path,
     open: bool,
-    color_strategy: Box<dyn ColorStrategy>,
-    space_strategy: Box<dyn SpaceStrategy>,
+    color_strategy: Box<dyn ColorStrategy + Send>,
+    space_strategy: Box<dyn SpaceStrategy + Send>,
 ) -> anyhow::Result<()> {
     let mut reader = WavReader::open(input_file)?;
 
@@ -237,13 +288,44 @@ fn decode(
     input_file: &Path,
     output_file: &Path,
     wav_spec: WavSpec,
-    color_strategy: Box<dyn ColorStrategy>,
-    space_strategy: Box<dyn SpaceStrategy>,
+    color_strategy: Box<dyn ColorStrategy + Send>,
+    space_strategy: Box<dyn SpaceStrategy + Send>,
 ) -> anyhow::Result<()> {
     let image = image::io::Reader::open(input_file)?.decode()?.to_rgba8();
     let mut writer = WavWriter::create(output_file, wav_spec)?;
     decode_image(image, &mut writer, color_strategy, space_strategy)?;
     writer.finalize()?;
+
+    Ok(())
+}
+
+fn decode_play(
+    input_file: &Path,
+    device: &Device,
+    config: &cpal::StreamConfig,
+    color_strategy: Box<dyn ColorStrategy + Send>,
+    space_strategy: Box<dyn SpaceStrategy + Send>,
+) -> anyhow::Result<()> {
+    let image = image::io::Reader::open(input_file)?.decode()?.to_rgba8();
+
+    // let mut decoder = Arc::new(Mutex::new(Decoder::new(image, color_strategy, space_strategy)));
+    let mut decoder = Decoder::new(image, color_strategy, space_strategy);
+
+    let err_fn = |err| eprintln!("an error occurred while streaming: {}", err);
+
+    let stream = device.build_output_stream(
+        config,
+        move |data: &mut [i16], _: &cpal::OutputCallbackInfo| {
+            // TODO better way to play until done?
+            data.fill_with(|| {
+                decoder.next().unwrap_or_else(|| std::process::exit(0))
+            });
+        },
+        err_fn,
+    )?;
+    stream.play()?;
+
+    std::thread::sleep(std::time::Duration::MAX);
 
     Ok(())
 }

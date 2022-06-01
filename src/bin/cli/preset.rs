@@ -38,7 +38,7 @@ impl Default for HueColorPreset {
 }
 
 impl ColorPreset {
-    pub fn to_strategy(&self) -> Box<dyn ColorStrategy> {
+    pub fn to_strategy(&self) -> Box<dyn ColorStrategy + Send> {
         use ColorPreset::*;
         match self {
             Hue { options } => Box::new(HueColorStrategy::new(
@@ -63,7 +63,7 @@ pub enum SpacePreset {
 }
 
 impl SpacePreset {
-    pub fn to_strategy(&self) -> Box<dyn SpaceStrategy> {
+    pub fn to_strategy(&self) -> Box<dyn SpaceStrategy + Send> {
         use SpacePreset::*;
         match self {
             Hilbert { size } => {

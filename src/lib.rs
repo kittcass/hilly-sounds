@@ -24,8 +24,8 @@ where
 {
     index: usize,
     iter: I,
-    color_strategy: Box<dyn ColorStrategy>,
-    space_strategy: Box<dyn SpaceStrategy>,
+    color_strategy: Box<dyn ColorStrategy + Send>,
+    space_strategy: Box<dyn SpaceStrategy + Send>,
 }
 
 impl<S, I> Encoder<S, I>
@@ -35,8 +35,8 @@ where
 {
     pub fn new(
         iter: I,
-        color_strategy: Box<dyn ColorStrategy>,
-        space_strategy: Box<dyn SpaceStrategy>,
+        color_strategy: Box<dyn ColorStrategy + Send>,
+        space_strategy: Box<dyn SpaceStrategy + Send>,
     ) -> Self {
         Encoder {
             index: 0,
@@ -83,8 +83,8 @@ where
 
 pub fn encode_image<S, I>(
     iter: I,
-    color_strategy: Box<dyn ColorStrategy>,
-    space_strategy: Box<dyn SpaceStrategy>,
+    color_strategy: Box<dyn ColorStrategy + Send>,
+    space_strategy: Box<dyn SpaceStrategy + Send>,
 ) -> image::ImageBuffer<image::Rgba<u8>, Vec<u8>>
 where
     S: hound::Sample + SampleConvert,
@@ -107,16 +107,19 @@ where
 pub struct Decoder {
     index: usize,
     image: RgbaImage,
-    color_strategy: Box<dyn ColorStrategy>,
-    space_strategy: Box<dyn SpaceStrategy>,
+    color_strategy: Box<dyn ColorStrategy + Send>,
+    space_strategy: Box<dyn SpaceStrategy + Send>,
 }
 
 impl Decoder {
     pub fn new(
         image: RgbaImage,
-        color_strategy: Box<dyn ColorStrategy>,
-        space_strategy: Box<dyn SpaceStrategy>,
+        color_strategy: Box<dyn ColorStrategy + Send>,
+        space_strategy: Box<dyn SpaceStrategy + Send>,
     ) -> Self {
+        assert!(image.width() == space_strategy.width());
+        assert!(image.height() == space_strategy.height());
+
         Decoder {
             index: 0,
             image,
@@ -155,9 +158,9 @@ impl Iterator for Decoder {
 pub fn decode_image<W>(
     image: RgbaImage,
     writer: &mut WavWriter<W>,
-    color_strategy: Box<dyn ColorStrategy>,
-    space_strategy: Box<dyn SpaceStrategy>,
-) -> anyhow::Result<()>
+    color_strategy: Box<dyn ColorStrategy + Send>,
+    space_strategy: Box<dyn SpaceStrategy + Send>,
+) -> hound::Result<()>
 where
     W: io::Write + io::Seek,
 {
