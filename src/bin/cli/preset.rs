@@ -6,13 +6,13 @@ use hilly_sounds::strategy::{
     ColorStrategy, SpaceStrategy,
 };
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Preset {
     pub color: ColorPreset,
     pub space: SpacePreset,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(tag = "strategy", content = "options", rename_all = "snake_case")]
 pub enum ColorPreset {
     Hue {
@@ -21,7 +21,7 @@ pub enum ColorPreset {
     },
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(default)]
 pub struct HueColorPreset {
     saturation: f32,
@@ -49,7 +49,7 @@ impl ColorPreset {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(tag = "strategy", content = "options", rename_all = "snake_case")]
 pub enum SpacePreset {
     Hilbert {

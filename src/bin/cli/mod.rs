@@ -3,7 +3,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use clap::{Parser, Subcommand};
+use clap::{ArgEnum, Parser, Subcommand};
 use hound::{WavReader, WavSpec, WavWriter};
 use nannou::image::{self, ImageFormat};
 
@@ -82,8 +82,24 @@ enum Command {
         #[clap(short, long)]
         list_devices: bool,
     },
-    /// Dump the current configuration values.
-    DumpConfig,
+    /// Dump the current preset to the standard output.
+    DumpPreset {
+        /// The format to output to.
+        #[clap(arg_enum, short, long, default_value_t = DumpFormat::Toml)]
+        format: DumpFormat,
+
+        /// Whether or not to pretty print outputs.
+        #[clap(short, long)]
+        pretty: bool,
+    },
+}
+
+#[derive(ArgEnum, Copy, Clone)]
+enum DumpFormat {
+    Debug,
+    Toml,
+    #[cfg(feature = "json")]
+    Json,
 }
 
 fn main() -> anyhow::Result<()> {
@@ -92,14 +108,16 @@ fn main() -> anyhow::Result<()> {
     // TODO default preset
 
     // TODO handle validation errors
+    let preset = if let Some(preset_path) = args.preset_path {
+        let preset_toml = fs::read_to_string(preset_path)?;
+        let preset: Preset = toml::from_str(&preset_toml)?;
+        preset
+    } else {
+        todo!()
+    };
+
     let (color_strategy, space_strategy) =
-        if let Some(preset_path) = args.preset_path {
-            let preset_toml = fs::read_to_string(preset_path)?;
-            let preset: Preset = toml::from_str(&preset_toml)?;
-            (preset.color.to_strategy(), preset.space.to_strategy())
-        } else {
-            todo!()
-        };
+        (preset.color.to_strategy(), preset.space.to_strategy());
 
     match &args.command {
         Command::Encode {
@@ -144,7 +162,9 @@ fn main() -> anyhow::Result<()> {
             device: _,
             list_devices: _,
         } => todo!(),
-        Command::DumpConfig => todo!(),
+        Command::DumpPreset { format, pretty } => {
+            dump_preset(&preset, *format, *pretty)?
+        }
     }
 
     Ok(())
@@ -220,6 +240,38 @@ fn decode(
     let mut writer = WavWriter::create(output_file, wav_spec)?;
     decode_image(image, &mut writer, color_strategy, space_strategy)?;
     writer.finalize()?;
+
+    Ok(())
+}
+
+fn dump_preset(
+    preset: &Preset,
+    format: DumpFormat,
+    pretty: bool,
+) -> anyhow::Result<()> {
+    if pretty {
+        match format {
+            DumpFormat::Debug => println!("{:#?}", preset),
+            DumpFormat::Toml => {
+                print!("{}", toml::to_string_pretty(&preset)?)
+            }
+            #[cfg(feature = "json")]
+            DumpFormat::Json => {
+                println!("{}", serde_json::to_string_pretty(&preset)?)
+            }
+        }
+    } else {
+        match format {
+            DumpFormat::Debug => println!("{:?}", preset),
+            DumpFormat::Toml => {
+                print!("{}", toml::to_string(&preset)?)
+            }
+            #[cfg(feature = "json")]
+            DumpFormat::Json => {
+                println!("{}", serde_json::to_string(&preset)?)
+            }
+        }
+    }
 
     Ok(())
 }
