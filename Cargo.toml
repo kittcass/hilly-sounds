@@ -5,25 +5,33 @@ edition = "2021"
 
 [dependencies]
 anyhow = { version = "1.0", optional = true }
-clap = { version = "3.1", features = ["cargo", "derive"], optional = true }
 cpal = { version = "0.13", features = ["jack"] }
 derive_builder = "0.11"
 dsp = "0.10"
 hilbert = "0.1"
 hound = "3.4"
 nannou = "0.18"
-nannou_egui = "0.5"
+nannou_egui = { version = "0.5", optional = true }
 num-bigint = "0.4"
+toml = { version = "0.5", optional = true }
+
+[dependencies.clap]
+version = "3.1"
+features = ["cargo", "derive"]
+optional = true
+
+[dependencies.serde]
+version = "1.0"
+features = ["derive"]
+optional = true
 
 [[bin]]
-name = "encode"
-path = "src/bin/encode.rs"
-required-features = ["binary"]
-
-[[bin]]
-name = "decode"
-path = "src/bin/decode.rs"
-required-features = ["binary"]
+name = "cli"
+path = "src/bin/cli/mod.rs"
+required-features = ["binary", "toml"]
 
 [features]
-binary = ["anyhow", "clap"]
+binary = ["dep:anyhow", "dep:clap"]
+egui = ["dep:nannou_egui"]
+serde = ["dep:serde"]
+toml = ["serde", "dep:toml"]

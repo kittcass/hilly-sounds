@@ -1,13 +1,9 @@
-#[cfg(feature = "binary")]
-use clap::Parser;
+#![feature(int_log)]
 
-use hilbert::fast_hilbert::hilbert_axes;
-use nannou::{
-    color::{hsv, Rgba},
-    image,
-    prelude::{One, ToPrimitive, Zero},
-};
-use num_bigint::BigUint;
+use nannou::image;
+use strategy::{ColorStrategy, SpaceStrategy};
+
+pub mod strategy;
 
 // TODO should we separate pixel data encoding/decoding from the hilbert curve?
 // so far, this algorithm operates independently of the curve, so maybe it
@@ -16,28 +12,15 @@ use num_bigint::BigUint;
 // TODO maybe pass sizes as actual values and infer exp instead, validating that
 // they are power of two
 
-#[derive(Copy, Clone)]
-#[cfg_attr(feature = "binary", derive(Parser))]
-pub struct Options {
-    /// The exponent of the side length (2^n).
-    #[cfg_attr(feature = "binary", clap(long, default_value_t = 9))]
-    pub size_exp: usize,
-}
-
-impl Options {
-    pub fn side_len(&self) -> u32 {
-        2u32.pow(self.size_exp as u32)
-    }
-}
-
 pub struct Encoder<S, I>
 where
     S: hound::Sample + SampleConvert,
     I: Iterator<Item = S>,
 {
+    index: usize,
     iter: I,
-    options: Options,
-    index: BigUint,
+    color_strategy: Box<dyn ColorStrategy>,
+    space_strategy: Box<dyn SpaceStrategy>,
 }
 
 impl<S, I> Encoder<S, I>
@@ -45,16 +28,17 @@ where
     S: hound::Sample + SampleConvert,
     I: Iterator<Item = S>,
 {
-    pub fn new(iter: I, options: Options) -> Self {
+    pub fn new(
+        iter: I,
+        color_strategy: Box<dyn ColorStrategy>,
+        space_strategy: Box<dyn SpaceStrategy>,
+    ) -> Self {
         Encoder {
+            index: 0,
             iter,
-            options,
-            index: BigUint::zero(),
+            color_strategy,
+            space_strategy,
         }
-    }
-
-    pub fn options(&self) -> &Options {
-        &self.options
     }
 }
 
@@ -66,31 +50,21 @@ where
     type Item = ([u32; 2], image::Rgba<u8>);
 
     fn next(&mut self) -> Option<Self::Item> {
-        // TODO don't do this every iteration?
-        let side_len = self.options.side_len();
-        if self.index.to_u32().unwrap() >= side_len * side_len {
+        if self.index >= self.space_strategy.size() {
             return None;
         }
 
         if let Some(sample) = self.iter.next() {
-            let coords =
-                hilbert_axes(&self.index, self.options.size_exp + 2, 2);
-            self.index += BigUint::one();
+            let coords = self
+                .space_strategy
+                .index_to_coord(self.index)
+                .expect("could not get coordinate from index");
+            self.index += 1;
 
-            let hue = (sample.convert_to_f32() + 2u32.pow(15) as f32)
-                / (2u32.pow(16) as f32);
+            let color =
+                self.color_strategy.sample_to_color(sample.convert_to_i16());
 
-            let rgb: Rgba = hsv(hue, 1.0, 1.0).into();
-
-            Some((
-                [coords[0], coords[1]],
-                image::Rgba([
-                    (255. * rgb.red) as u8,
-                    (255. * rgb.green) as u8,
-                    (255. * rgb.blue) as u8,
-                    255,
-                ]),
-            ))
+            Some((coords, color))
         } else {
             None
         }
@@ -104,18 +78,21 @@ where
 
 pub fn encode_image<S, I>(
     iter: I,
-    options: Options,
+    color_strategy: Box<dyn ColorStrategy>,
+    space_strategy: Box<dyn SpaceStrategy>,
 ) -> image::ImageBuffer<image::Rgba<u8>, Vec<u8>>
 where
     S: hound::Sample + SampleConvert,
     I: Iterator<Item = S>,
 {
-    let side_len = options.side_len();
-    let mut image = image::ImageBuffer::new(side_len, side_len);
+    let mut image = image::ImageBuffer::new(
+        space_strategy.width(),
+        space_strategy.height(),
+    );
 
-    let mut encoder = Encoder::new(iter, options);
+    let encoder = Encoder::new(iter, color_strategy, space_strategy);
 
-    while let Some(([x, y], color)) = encoder.next() {
+    for ([x, y], color) in encoder {
         image.put_pixel(x, y, color);
     }
 

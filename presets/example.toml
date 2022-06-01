@@ -1,0 +1,12 @@
+[color]
+strategy = "hue"
+
+[color.options]
+saturation = 1.0
+value = 0.8
+
+[space]
+strategy = "hilbert"
+
+[space.options]
+size = 1024
