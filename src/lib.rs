@@ -24,9 +24,15 @@ pub struct Options {
     pub size_exp: usize,
 }
 
+impl Options {
+    pub fn side_len(&self) -> u32 {
+        2u32.pow(self.size_exp as u32)
+    }
+}
+
 pub struct Encoder<S, I>
 where
-    S: hound::Sample,
+    S: hound::Sample + SampleConvert,
     I: Iterator<Item = S>,
 {
     iter: I,
@@ -36,7 +42,7 @@ where
 
 impl<S, I> Encoder<S, I>
 where
-    S: hound::Sample,
+    S: hound::Sample + SampleConvert,
     I: Iterator<Item = S>,
 {
     pub fn new(iter: I, options: Options) -> Self {
@@ -50,22 +56,18 @@ where
     pub fn options(&self) -> &Options {
         &self.options
     }
-
-    pub fn side_len(&self) -> u32 {
-        2u32.pow(self.options.size_exp as u32)
-    }
 }
 
 impl<S, I> Iterator for Encoder<S, I>
 where
-    S: hound::Sample,
+    S: hound::Sample + SampleConvert,
     I: Iterator<Item = S>,
 {
     type Item = ([u32; 2], image::Rgba<u8>);
 
     fn next(&mut self) -> Option<Self::Item> {
         // TODO don't do this every iteration?
-        let side_len = self.side_len();
+        let side_len = self.options.side_len();
         if self.index.to_u32().unwrap() >= side_len * side_len {
             return None;
         }
@@ -75,8 +77,8 @@ where
                 hilbert_axes(&self.index, self.options.size_exp + 2, 2);
             self.index += BigUint::one();
 
-            let hue =
-                (sample.as_i16() as f32 + 2u32.pow(15) as f32) / (2u32.pow(16) as f32);
+            let hue = (sample.convert_to_f32() + 2u32.pow(15) as f32)
+                / (2u32.pow(16) as f32);
 
             let rgb: Rgba = hsv(hue, 1.0, 1.0).into();
 
@@ -105,16 +107,42 @@ pub fn encode_image<S, I>(
     options: Options,
 ) -> image::ImageBuffer<image::Rgba<u8>, Vec<u8>>
 where
-    S: hound::Sample,
+    S: hound::Sample + SampleConvert,
     I: Iterator<Item = S>,
 {
+    let side_len = options.side_len();
+    let mut image = image::ImageBuffer::new(side_len, side_len);
+
     let mut encoder = Encoder::new(iter, options);
-    let mut image =
-        image::ImageBuffer::new(encoder.side_len(), encoder.side_len());
 
     while let Some(([x, y], color)) = encoder.next() {
         image.put_pixel(x, y, color);
     }
 
     image
+}
+
+pub trait SampleConvert {
+    fn convert_to_i16(self) -> i16;
+    fn convert_to_f32(self) -> f32;
+}
+
+impl SampleConvert for i16 {
+    fn convert_to_i16(self) -> i16 {
+        self
+    }
+
+    fn convert_to_f32(self) -> f32 {
+        self as f32 / 32768.0
+    }
+}
+
+impl SampleConvert for f32 {
+    fn convert_to_i16(self) -> i16 {
+        (self * 32768.0) as i16
+    }
+
+    fn convert_to_f32(self) -> f32 {
+        self
+    }
 }
