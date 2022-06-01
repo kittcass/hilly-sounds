@@ -1,6 +1,9 @@
 #![feature(int_log)]
 
-use nannou::image;
+use std::io;
+
+use hound::WavWriter;
+use nannou::image::{self, RgbaImage};
 use strategy::{ColorStrategy, SpaceStrategy};
 
 pub mod strategy;
@@ -11,6 +14,8 @@ pub mod strategy;
 
 // TODO maybe pass sizes as actual values and infer exp instead, validating that
 // they are power of two
+
+pub type PixelData = ([u32; 2], image::Rgba<u8>);
 
 pub struct Encoder<S, I>
 where
@@ -47,7 +52,7 @@ where
     S: hound::Sample + SampleConvert,
     I: Iterator<Item = S>,
 {
-    type Item = ([u32; 2], image::Rgba<u8>);
+    type Item = PixelData;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.index >= self.space_strategy.size() {
@@ -97,6 +102,72 @@ where
     }
 
     image
+}
+
+pub struct Decoder {
+    index: usize,
+    image: RgbaImage,
+    color_strategy: Box<dyn ColorStrategy>,
+    space_strategy: Box<dyn SpaceStrategy>,
+}
+
+impl Decoder {
+    pub fn new(
+        image: RgbaImage,
+        color_strategy: Box<dyn ColorStrategy>,
+        space_strategy: Box<dyn SpaceStrategy>,
+    ) -> Self {
+        Decoder {
+            index: 0,
+            image,
+            color_strategy,
+            space_strategy,
+        }
+    }
+}
+
+impl Iterator for Decoder {
+    type Item = i16;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.index >= self.space_strategy.size() {
+            return None;
+        }
+
+        let [x, y] = self
+            .space_strategy
+            .index_to_coord(self.index)
+            .expect("could not get coordinate from index");
+        self.index += 1;
+
+        let color = self.image.get_pixel(x, y);
+
+        let sample = self.color_strategy.color_to_sample(color);
+
+        Some(sample)
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (0, Some(self.space_strategy.size()))
+    }
+}
+
+pub fn decode_image<W>(
+    image: RgbaImage,
+    writer: &mut WavWriter<W>,
+    color_strategy: Box<dyn ColorStrategy>,
+    space_strategy: Box<dyn SpaceStrategy>,
+) -> anyhow::Result<()>
+where
+    W: io::Write + io::Seek,
+{
+    let decoder = Decoder::new(image, color_strategy, space_strategy);
+
+    for sample in decoder {
+        writer.write_sample(sample)?;
+    }
+
+    Ok(())
 }
 
 pub trait SampleConvert {

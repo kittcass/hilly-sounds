@@ -6,8 +6,6 @@ pub type Coord = [u32; 2];
 pub trait SpaceStrategy {
     fn index_to_coord(&self, index: usize) -> Option<Coord>;
 
-    fn coord_to_index(&self, coord: Coord) -> Option<usize>;
-
     fn width(&self) -> u32;
 
     fn height(&self) -> u32;
@@ -36,10 +34,6 @@ impl SpaceStrategy for HilbertSpaceStrategy {
         Some([coords[0], coords[1]]) // TODO is there a better way to do this
     }
 
-    fn coord_to_index(&self, _coord: Coord) -> Option<usize> {
-        todo!()
-    }
-
     fn width(&self) -> u32 {
         2u32.pow(self.size_exp)
     }
@@ -62,10 +56,6 @@ impl LineSpaceStrategy {
 impl SpaceStrategy for LineSpaceStrategy {
     fn index_to_coord(&self, index: usize) -> Option<Coord> {
         Some([index.try_into().unwrap(), 0])
-    }
-
-    fn coord_to_index(&self, coord: Coord) -> Option<usize> {
-        Some(coord[0] as usize)
     }
 
     fn width(&self) -> u32 {

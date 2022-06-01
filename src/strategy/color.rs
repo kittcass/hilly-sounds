@@ -1,12 +1,12 @@
 use nannou::{
-    color::{self, hsv},
+    color::{hsv, Hsv, Rgb},
     image,
 };
 
 pub trait ColorStrategy {
     fn sample_to_color(&self, sample: i16) -> image::Rgba<u8>;
 
-    fn color_to_sample(&self, color: image::Rgba<u8>) -> i16;
+    fn color_to_sample(&self, color: &image::Rgba<u8>) -> i16;
 }
 
 pub struct HueColorStrategy {
@@ -23,7 +23,7 @@ impl HueColorStrategy {
 impl ColorStrategy for HueColorStrategy {
     fn sample_to_color(&self, sample: i16) -> image::Rgba<u8> {
         let hue = (sample as f32 + 2u32.pow(15) as f32) / (2u32.pow(16) as f32);
-        let rgb: color::Rgb = hsv(hue, self.saturation, self.value).into();
+        let rgb: Rgb = hsv(hue, self.saturation, self.value).into();
         image::Rgba([
             (255. * rgb.red) as u8,
             (255. * rgb.green) as u8,
@@ -32,7 +32,13 @@ impl ColorStrategy for HueColorStrategy {
         ])
     }
 
-    fn color_to_sample(&self, _color: image::Rgba<u8>) -> i16 {
-        unimplemented!()
+    fn color_to_sample(&self, color: &image::Rgba<u8>) -> i16 {
+        let [r, g, b, _] = color.0;
+        let hsv: Hsv =
+            Rgb::new(r as f32 / 255., g as f32 / 255., b as f32 / 255.).into();
+        let sample = (hsv.hue.to_positive_radians() / std::f32::consts::TAU)
+            * (2u32.pow(16) as f32)
+            - (2u32.pow(15) as f32);
+        sample as i16
     }
 }

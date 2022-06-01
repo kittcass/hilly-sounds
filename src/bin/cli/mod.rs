@@ -4,11 +4,11 @@ use std::{
 };
 
 use clap::{Parser, Subcommand};
-use hound::WavReader;
-use nannou::image::ImageFormat;
+use hound::{WavReader, WavSpec, WavWriter};
+use nannou::image::{self, ImageFormat};
 
 use hilly_sounds::{
-    encode_image,
+    decode_image, encode_image,
     strategy::{ColorStrategy, SpaceStrategy},
 };
 
@@ -60,6 +60,14 @@ enum Command {
         /// both when no output path is specified and when only a directory is
         /// provided.
         output_path: Option<PathBuf>,
+
+        /// The number of channels to output to.
+        #[clap(short, long, default_value_t = 2)]
+        channels: u16,
+
+        /// The sample rate to output to.
+        #[clap(short, long, default_value_t = 48000)]
+        sample_rate: u32,
     },
     /// Decode a PNG file and play it.
     DecodePlay {
@@ -110,10 +118,26 @@ fn main() -> anyhow::Result<()> {
             )?;
         }
         Command::Decode {
-            input_file: _,
-            output_path: _output_file,
+            input_file,
+            output_path,
+            channels,
+            sample_rate,
         } => {
-            todo!()
+            let output_file =
+                resolve_output_file(input_file, output_path, "wav");
+            let wav_spec = WavSpec {
+                channels: *channels,
+                sample_rate: *sample_rate,
+                bits_per_sample: 16,
+                sample_format: hound::SampleFormat::Int,
+            };
+            decode(
+                input_file,
+                &output_file,
+                wav_spec,
+                color_strategy,
+                space_strategy,
+            )?;
         }
         Command::DecodePlay {
             input_file: _,
@@ -158,9 +182,8 @@ fn encode(
     open: bool,
     color_strategy: Box<dyn ColorStrategy>,
     space_strategy: Box<dyn SpaceStrategy>,
-) -> anyhow::Result<() >{
-    let mut reader =
-        WavReader::open(input_file)?;
+) -> anyhow::Result<()> {
+    let mut reader = WavReader::open(input_file)?;
 
     let image = match reader.spec().sample_format {
         hound::SampleFormat::Float => encode_image(
@@ -182,6 +205,21 @@ fn encode(
     if open {
         opener::open(output_file)?;
     }
+
+    Ok(())
+}
+
+fn decode(
+    input_file: &Path,
+    output_file: &Path,
+    wav_spec: WavSpec,
+    color_strategy: Box<dyn ColorStrategy>,
+    space_strategy: Box<dyn SpaceStrategy>,
+) -> anyhow::Result<()> {
+    let image = image::io::Reader::open(input_file)?.decode()?.to_rgba8();
+    let mut writer = WavWriter::create(output_file, wav_spec)?;
+    decode_image(image, &mut writer, color_strategy, space_strategy)?;
+    writer.finalize()?;
 
     Ok(())
 }
