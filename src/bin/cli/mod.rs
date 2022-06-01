@@ -107,7 +107,7 @@ fn main() -> anyhow::Result<()> {
                 *open,
                 color_strategy,
                 space_strategy,
-            );
+            )?;
         }
         Command::Decode {
             input_file: _,
@@ -158,9 +158,9 @@ fn encode(
     open: bool,
     color_strategy: Box<dyn ColorStrategy>,
     space_strategy: Box<dyn SpaceStrategy>,
-) {
+) -> anyhow::Result<() >{
     let mut reader =
-        WavReader::open(input_file).expect("could not read WAV file");
+        WavReader::open(input_file)?;
 
     let image = match reader.spec().sample_format {
         hound::SampleFormat::Float => encode_image(
@@ -180,6 +180,8 @@ fn encode(
         .expect("could not save PNG");
 
     if open {
-        // TODO open file using opener crate
+        opener::open(output_file)?;
     }
+
+    Ok(())
 }
