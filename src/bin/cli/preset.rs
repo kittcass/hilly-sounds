@@ -53,11 +53,9 @@ impl ColorPreset {
 #[serde(tag = "strategy", content = "options", rename_all = "snake_case")]
 pub enum SpacePreset {
     Hilbert {
-        // #[serde(default = "1024")]
         size: u32,
     },
     Line {
-        // #[serde(default = "8192")]
         length: usize,
     },
 }

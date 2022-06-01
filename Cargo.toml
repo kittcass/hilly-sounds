@@ -19,7 +19,7 @@ toml = { version = "0.5", optional = true }
 
 [dependencies.clap]
 version = "3.1"
-features = ["cargo", "derive"]
+features = ["cargo", "derive", "env"]
 optional = true
 
 [dependencies.serde]

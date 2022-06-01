@@ -25,7 +25,7 @@ use preset::Preset;
 #[clap(version, color = clap::ColorChoice::Never)]
 struct Args {
     /// Path to a TOML preset file, containing color and space strategies.
-    #[clap(name = "preset", short, long, global = true)]
+    #[clap(name = "preset", env = "PRESET", short, long, global = true)]
     preset_path: Option<PathBuf>,
 
     #[clap(subcommand)]
@@ -103,7 +103,7 @@ enum Command {
         format: DumpFormat,
 
         /// Whether or not to pretty print outputs.
-        #[clap(short, long)]
+        #[clap(long)]
         pretty: bool,
     },
 }
