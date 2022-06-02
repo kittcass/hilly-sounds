@@ -14,19 +14,19 @@ use nannou::image::{self, ImageFormat};
 
 use hilly_sounds::{
     decode_image, encode_image,
-    strategy::{ColorStrategy, SpaceStrategy},
+    strategy::{ColorStrategy, Preset, SpaceStrategy},
     Decoder,
 };
 
-mod preset;
-use preset::Preset;
+mod util;
+use util::*;
 
 #[derive(Parser)]
 #[clap(version, color = clap::ColorChoice::Never)]
 struct Args {
     /// Path to a TOML preset file, containing color and space strategies.
     #[clap(name = "preset", env = "PRESET", short, long, global = true)]
-    preset_path: Option<PathBuf>,
+    preset_path: PathBuf,
 
     #[clap(subcommand)]
     command: Command,
@@ -47,6 +47,10 @@ enum Command {
         /// both when no output path is specified and when only a directory is
         /// provided.
         output_path: Option<PathBuf>,
+
+        /// Number of sections to skip.
+        #[clap(long, default_value_t = 0)]
+        skip: usize,
 
         /// Open the file using the default system application for the file type
         /// after it has been saved.
@@ -120,15 +124,10 @@ fn main() -> anyhow::Result<()> {
     let args = Args::parse();
 
     // TODO handle validation errors
-    let preset = if let Some(preset_path) = args.preset_path {
-        let preset_toml = fs::read_to_string(preset_path)
-            .context("failed to read preset file")?;
-        let preset: Preset = toml::from_str(&preset_toml)
-            .context("failed to parse TOML in preset file")?;
-        preset
-    } else {
-        todo!("default preset")
-    };
+    let preset_toml = fs::read_to_string(args.preset_path)
+        .context("failed to read preset file")?;
+    let preset: Preset = toml::from_str(&preset_toml)
+        .context("failed to parse TOML in preset file")?;
 
     let (color_strategy, space_strategy) =
         (preset.color.to_strategy(), preset.space.to_strategy());
@@ -137,6 +136,7 @@ fn main() -> anyhow::Result<()> {
         Command::Encode {
             input_file,
             output_path,
+            skip,
             open,
         } => {
             let output_file =
@@ -144,6 +144,7 @@ fn main() -> anyhow::Result<()> {
             encode(
                 input_file,
                 &output_file,
+                *skip,
                 *open,
                 color_strategy,
                 space_strategy,
@@ -225,14 +226,6 @@ fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-fn validate_is_file(arg: &str) -> Result<(), String> {
-    if !PathBuf::from(arg).is_file() {
-        Err(String::from("not a file"))
-    } else {
-        Ok(())
-    }
-}
-
 fn resolve_output_file(
     input_file: &Path,
     output_path: &Option<PathBuf>,
@@ -254,16 +247,18 @@ fn resolve_output_file(
 fn encode(
     input_file: &Path,
     output_file: &Path,
+    skip: usize,
     open: bool,
     color_strategy: Box<dyn ColorStrategy + Send>,
     space_strategy: Box<dyn SpaceStrategy + Send>,
 ) -> anyhow::Result<()> {
     let mut reader = WavReader::open(input_file)?;
 
+    let skip = skip * space_strategy.size();
     let image = match reader.spec().sample_format {
         hound::SampleFormat::Float => match reader.spec().bits_per_sample {
             16 => encode_image(
-                reader.samples::<f32>().map_while(Result::ok),
+                reader.samples::<f32>().skip(skip).map_while(Result::ok),
                 color_strategy,
                 space_strategy,
             ),
@@ -271,12 +266,12 @@ fn encode(
         },
         hound::SampleFormat::Int => match reader.spec().bits_per_sample {
             16 => encode_image(
-                reader.samples::<i16>().map_while(Result::ok),
+                reader.samples::<i16>().skip(skip).map_while(Result::ok),
                 color_strategy,
                 space_strategy,
             ),
             32 => encode_image(
-                reader.samples::<i32>().map_while(Result::ok),
+                reader.samples::<i32>().skip(skip).map_while(Result::ok),
                 color_strategy,
                 space_strategy,
             ),

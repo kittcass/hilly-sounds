@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use hilly_sounds::strategy::{
+use super::{
     color::HueColorStrategy,
     space::{HilbertSpaceStrategy, LineSpaceStrategy},
     ColorStrategy, SpaceStrategy,
@@ -52,12 +52,8 @@ impl ColorPreset {
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(tag = "strategy", content = "options", rename_all = "snake_case")]
 pub enum SpacePreset {
-    Hilbert {
-        size: u32,
-    },
-    Line {
-        length: usize,
-    },
+    Hilbert { size: u32 },
+    Line { length: usize },
 }
 
 impl SpacePreset {

@@ -5,7 +5,6 @@ edition = "2021"
 
 [dependencies]
 anyhow = { version = "1.0", optional = true }
-cpal = { version = "0.13", features = ["jack"] }
 derive_builder = "0.11"
 dsp = "0.10"
 hilbert = "0.1"
@@ -14,12 +13,18 @@ nannou = "0.18"
 nannou_egui = { version = "0.5", optional = true }
 num-bigint = "0.4"
 opener = { version = "0.5.0", optional = true }
+rodio = { version = "0.13", optional = true }
 serde_json = { version = "1.0", optional = true }
 toml = { version = "0.5", optional = true }
 
 [dependencies.clap]
 version = "3.1"
 features = ["cargo", "derive", "env"]
+optional = true
+
+[dependencies.cpal]
+version = "0.13"
+features = ["jack"]
 optional = true
 
 [dependencies.serde]
@@ -29,12 +34,19 @@ optional = true
 
 [[bin]]
 name = "hscli"
-path = "src/bin/cli/mod.rs"
-required-features = ["binary", "toml"]
+path = "src/bin/cli.rs"
+required-features = ["binary", "cpal", "toml"]
+
+[[bin]]
+name = "snake"
+path = "src/bin/snake.rs"
+required-features = ["binary", "playback", "toml"]
 
 [features]
 binary = ["dep:anyhow", "dep:clap", "dep:opener"]
+cpal = ["dep:cpal"]
 egui = ["dep:nannou_egui"]
+playback = ["dep:rodio"]
 json = ["dep:serde_json"]
 serde = ["dep:serde"]
 toml = ["serde", "dep:toml"]
