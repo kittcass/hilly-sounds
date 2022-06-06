@@ -1,0 +1,59 @@
+@import url(https://fonts.googleapis.com/css2?family=Domine:wght@400;600&display=swap);
+@import url(https://fonts.googleapis.com/css2?family=Fira+Code:wght@200;300;400;500;600;700&display=swap);
+
+body {
+    font-family: 'Domine';
+}
+
+.remark-code, .remark-inline-code {
+    font-family: 'Fira Code';
+}
+
+.hide-others .remark-code-line-highlighted {
+    background-color: transparent;
+}
+
+.hide-others .remark-code > :not(.remark-code-line-highlighted) {
+    opacity: 0.4;
+}
+
+li, p {
+    line-height: 1.5;
+}
+
+h3, h4 {
+    font-weight: normal;
+}
+
+.footnote {
+    font-size: 16px;
+}
+
+figure {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-flow: column;
+}
+
+.image-row {
+    display: flex;
+    justify-content: center;
+    width: 60%;
+}
+
+figcaption {
+    font-size: 90%;
+}
+
+.image-row img {
+    display: flex;
+    max-width: 38%;
+}
+
+.crisp {
+    width: 400px;
+    image-rendering: crisp-edges;
+    image-rendering: pixelated;
+    margin-bottom: 1em;
+}
