@@ -4,13 +4,18 @@ use std::{
 };
 
 use anyhow::{bail, Context};
-use clap::{ArgEnum, Parser, Subcommand};
+use clap::{ArgEnum, Parser, Subcommand, ValueHint};
 use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
     Device,
 };
 use hound::{WavReader, WavSpec, WavWriter};
 use nannou::image::{self, ImageFormat};
+
+#[cfg(feature = "completion")]
+use clap::CommandFactory;
+#[cfg(feature = "completion")]
+use clap_complete::{generate, Generator, Shell};
 
 use hilly_sounds::{
     decode_image, encode_image,
@@ -22,22 +27,23 @@ mod util;
 use util::*;
 
 #[derive(Parser)]
-#[clap(version, color = clap::ColorChoice::Never)]
+#[clap(name = "hscli", version, color = clap::ColorChoice::Never)]
 struct Args {
     /// Path to a TOML preset file, containing color and space strategies.
-    #[clap(name = "preset", env = "PRESET", short, long, global = true)]
-    preset_path: PathBuf,
+    #[clap(name = "preset", env = "PRESET", short, long, value_hint = ValueHint::FilePath)]
+    preset_path: Option<PathBuf>,
 
     #[clap(subcommand)]
     command: Command,
 }
 
 #[derive(Subcommand)]
+#[non_exhaustive]
 enum Command {
     /// Encode a WAV file into a PNG file.
     Encode {
         /// Path to the input WAV file.
-        #[clap(validator = validate_is_file)]
+        #[clap(validator = validate_is_file, value_hint = ValueHint::FilePath)]
         input_file: PathBuf,
 
         /// Output path for the WAV file, either a file or directory.
@@ -46,6 +52,7 @@ enum Command {
         /// extension instead (e.g. example.wav to example.png). This is used
         /// both when no output path is specified and when only a directory is
         /// provided.
+        #[clap(value_hint = ValueHint::AnyPath)]
         output_path: Option<PathBuf>,
 
         /// Number of sections to skip.
@@ -60,7 +67,7 @@ enum Command {
     /// Decode a PNG file into a WAV file.
     Decode {
         /// Path to the input PNG file.
-        #[clap(validator = validate_is_file)]
+        #[clap(validator = validate_is_file, value_hint = ValueHint::FilePath)]
         input_file: PathBuf,
 
         /// Output path for the WAV file, either a file or directory.
@@ -69,6 +76,7 @@ enum Command {
         /// extension instead (e.g. example.png to example.wav). This is used
         /// both when no output path is specified and when only a directory is
         /// provided.
+        #[clap(value_hint = ValueHint::AnyPath)]
         output_path: Option<PathBuf>,
 
         /// The number of channels to output to.
@@ -82,6 +90,7 @@ enum Command {
     /// Decode a PNG file and play it.
     DecodePlay {
         /// Path to the input PNG file..
+        #[clap(value_hint = ValueHint::FilePath)]
         input_file: PathBuf,
 
         /// The number of channels to output to.
@@ -110,6 +119,12 @@ enum Command {
         #[clap(long)]
         pretty: bool,
     },
+    /// Generate shell completions for a given shell.
+    #[cfg(feature = "completion")]
+    GenerateCompletions {
+        #[clap(arg_enum, conflicts_with = "preset")]
+        shell: Shell,
+    },
 }
 
 #[derive(ArgEnum, Copy, Clone)]
@@ -123,11 +138,21 @@ enum DumpFormat {
 fn main() -> anyhow::Result<()> {
     let args = Args::parse();
 
+    #[cfg(feature = "completion")]
+    if let Command::GenerateCompletions { shell } = args.command {
+        print_completions(shell, &mut Args::command());
+        return Ok(());
+    }
+
     // TODO handle validation errors
-    let preset_toml = fs::read_to_string(args.preset_path)
-        .context("failed to read preset file")?;
-    let preset: Preset = toml::from_str(&preset_toml)
-        .context("failed to parse TOML in preset file")?;
+    let preset = if let Some(preset_path) = args.preset_path {
+        let preset_toml = fs::read_to_string(preset_path)
+            .context("failed to read preset file")?;
+        toml::from_str(&preset_toml)
+            .context("failed to parse TOML in preset file")?
+    } else {
+        Preset::default()
+    };
 
     let (color_strategy, space_strategy) =
         (preset.color.to_strategy(), preset.space.to_strategy());
@@ -221,9 +246,16 @@ fn main() -> anyhow::Result<()> {
             dump_preset(&preset, *format, *pretty)
                 .context("failed to dump preset")?;
         }
+        #[cfg(feature = "completion")]
+        _ => unreachable!(),
     }
 
     Ok(())
+}
+
+#[cfg(feature = "completion")]
+fn print_completions<G: Generator>(gen: G, cmd: &mut clap::Command) {
+    generate(gen, cmd, cmd.get_name().to_string(), &mut std::io::stdout());
 }
 
 fn resolve_output_file(
@@ -314,7 +346,6 @@ fn decode_play(
 ) -> anyhow::Result<()> {
     let image = image::io::Reader::open(input_file)?.decode()?.to_rgba8();
 
-    // let mut decoder = Arc::new(Mutex::new(Decoder::new(image, color_strategy, space_strategy)));
     let mut decoder = Decoder::new(image, color_strategy, space_strategy);
 
     let err_fn = |err| eprintln!("an error occurred while streaming: {}", err);
