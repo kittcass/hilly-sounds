@@ -8,15 +8,15 @@ use strategy::{ColorStrategy, SpaceStrategy};
 
 pub mod strategy;
 
-// TODO should we separate pixel data encoding/decoding from the hilbert curve?
-// so far, this algorithm operates independently of the curve, so maybe it
-// should be decoupled? much to think about...
+/// An *n*-dimensional coordinate.
+pub type Coord<const N: usize> = [u32; N];
 
-// TODO maybe pass sizes as actual values and infer exp instead, validating that
-// they are power of two
+/// A pixel in an image, represented by a color and a two-dimensional
+/// coordinate.
+pub type PixelData = (Coord<2>, image::Rgba<u8>);
 
-pub type PixelData = ([u32; 2], image::Rgba<u8>);
-
+/// Encoding algorithm that combines color and space strategies with a stream of
+/// samples to produce an image.
 pub struct Encoder<S, I>
 where
     S: hound::Sample + SampleConvert,
@@ -25,7 +25,7 @@ where
     index: usize,
     iter: I,
     color_strategy: Box<dyn ColorStrategy + Send>,
-    space_strategy: Box<dyn SpaceStrategy + Send>,
+    space_strategy: Box<dyn SpaceStrategy<2> + Send>,
 }
 
 impl<S, I> Encoder<S, I>
@@ -36,7 +36,7 @@ where
     pub fn new(
         iter: I,
         color_strategy: Box<dyn ColorStrategy + Send>,
-        space_strategy: Box<dyn SpaceStrategy + Send>,
+        space_strategy: Box<dyn SpaceStrategy<2> + Send>,
     ) -> Self {
         Encoder {
             index: 0,
@@ -81,18 +81,19 @@ where
     }
 }
 
+/// Encode an image from a stream of samples.
 pub fn encode_image<S, I>(
     iter: I,
     color_strategy: Box<dyn ColorStrategy + Send>,
-    space_strategy: Box<dyn SpaceStrategy + Send>,
+    space_strategy: Box<dyn SpaceStrategy<2> + Send>,
 ) -> image::ImageBuffer<image::Rgba<u8>, Vec<u8>>
 where
     S: hound::Sample + SampleConvert,
     I: Iterator<Item = S>,
 {
     let mut image = image::ImageBuffer::new(
-        space_strategy.width(),
-        space_strategy.height(),
+        space_strategy.length(0),
+        space_strategy.length(1),
     );
 
     let encoder = Encoder::new(iter, color_strategy, space_strategy);
@@ -104,21 +105,23 @@ where
     image
 }
 
+/// Decoding algorithm that combines color and space strategies with an image to
+/// produce a stream of samples.
 pub struct Decoder {
     index: usize,
     image: RgbaImage,
     color_strategy: Box<dyn ColorStrategy + Send>,
-    space_strategy: Box<dyn SpaceStrategy + Send>,
+    space_strategy: Box<dyn SpaceStrategy<2> + Send>,
 }
 
 impl Decoder {
     pub fn new(
         image: RgbaImage,
         color_strategy: Box<dyn ColorStrategy + Send>,
-        space_strategy: Box<dyn SpaceStrategy + Send>,
+        space_strategy: Box<dyn SpaceStrategy<2> + Send>,
     ) -> Self {
-        assert!(image.width() == space_strategy.width());
-        assert!(image.height() == space_strategy.height());
+        assert!(image.width() == space_strategy.length(0));
+        assert!(image.height() == space_strategy.length(0));
 
         Decoder {
             index: 0,
@@ -155,11 +158,12 @@ impl Iterator for Decoder {
     }
 }
 
+/// Decode a stream of samples from an image.
 pub fn decode_image<W>(
     image: RgbaImage,
     writer: &mut WavWriter<W>,
     color_strategy: Box<dyn ColorStrategy + Send>,
-    space_strategy: Box<dyn SpaceStrategy + Send>,
+    space_strategy: Box<dyn SpaceStrategy<2> + Send>,
 ) -> hound::Result<()>
 where
     W: io::Write + io::Seek,
@@ -173,6 +177,7 @@ where
     Ok(())
 }
 
+/// A sample type which can be converted to [`i16`] and [`f32`].
 pub trait SampleConvert {
     fn convert_to_i16(self) -> i16;
     fn convert_to_f32(self) -> f32;

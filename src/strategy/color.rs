@@ -1,14 +1,39 @@
+//! Mapping strategies between colors and samples.
+
 use nannou::{
     color::{hsv, Hsv, Rgb},
     image,
 };
 
+/// A color strategy which represents a mapping between sound samples and
+/// colors.
+///
+/// These functions should accept any value of the types [`i16`] or
+/// [`image::Rgba<u8>`] without panicking.
+///
+/// ## Mapping
+///
+/// Ideally, each function is the inverse of each other. However, because there
+/// are more possible colors than samples, the mapping between colors and
+/// samples cannot be bijective.
+///
+/// One consequence of this fact is that not all algorithms cover the entire
+/// domain of these types. In this case, it is best if the implementation
+/// follows some sort of "best guess" so that unexpected artifacts do not
+/// appear.
 pub trait ColorStrategy {
+    /// Convert a sample to a color.
+    ///
+    /// This should accept any value for `sample` without panicking.
     fn sample_to_color(&self, sample: i16) -> image::Rgba<u8>;
 
+    /// Convert a sample to a color.
+    ///
+    /// This should accept any value for `color` without panicking.
     fn color_to_sample(&self, color: &image::Rgba<u8>) -> i16;
 }
 
+/// A [`ColorStrategy`] which maps operates based on hue.
 pub struct HueColorStrategy {
     saturation: f32,
     value: f32,

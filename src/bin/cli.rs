@@ -19,9 +19,12 @@ use clap_complete::{generate, Generator, Shell};
 
 use hilly_sounds::{
     decode_image, encode_image,
-    strategy::{ColorStrategy, Preset, SpaceStrategy},
+    strategy::{ColorStrategy, SpaceStrategy},
     Decoder,
 };
+
+mod preset;
+use preset::Preset;
 
 mod util;
 use util::*;
@@ -282,7 +285,7 @@ fn encode(
     skip: usize,
     open: bool,
     color_strategy: Box<dyn ColorStrategy + Send>,
-    space_strategy: Box<dyn SpaceStrategy + Send>,
+    space_strategy: Box<dyn SpaceStrategy<2> + Send>,
 ) -> anyhow::Result<()> {
     let mut reader = WavReader::open(input_file)?;
 
@@ -327,7 +330,7 @@ fn decode(
     output_file: &Path,
     wav_spec: WavSpec,
     color_strategy: Box<dyn ColorStrategy + Send>,
-    space_strategy: Box<dyn SpaceStrategy + Send>,
+    space_strategy: Box<dyn SpaceStrategy<2> + Send>,
 ) -> anyhow::Result<()> {
     let image = image::io::Reader::open(input_file)?.decode()?.to_rgba8();
     let mut writer = WavWriter::create(output_file, wav_spec)?;
@@ -342,7 +345,7 @@ fn decode_play(
     device: &Device,
     config: &cpal::StreamConfig,
     color_strategy: Box<dyn ColorStrategy + Send>,
-    space_strategy: Box<dyn SpaceStrategy + Send>,
+    space_strategy: Box<dyn SpaceStrategy<2> + Send>,
 ) -> anyhow::Result<()> {
     let image = image::io::Reader::open(input_file)?.decode()?.to_rgba8();
 

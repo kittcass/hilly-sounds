@@ -1,12 +1,12 @@
 use serde::{Deserialize, Serialize};
 
-use super::{
+use hilly_sounds::strategy::{
     color::HueColorStrategy,
-    space::{HilbertSpaceStrategy, LineSpaceStrategy},
+    space::{HilbertSpaceStrategy, LineSpaceStrategy, SpaceStrategyAdapter},
     ColorStrategy, SpaceStrategy,
 };
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Default)]
 pub struct Preset {
     pub color: ColorPreset,
     pub space: SpacePreset,
@@ -19,6 +19,14 @@ pub enum ColorPreset {
         #[serde(flatten)]
         options: HueColorPreset,
     },
+}
+
+impl Default for ColorPreset {
+    fn default() -> ColorPreset {
+        ColorPreset::Hue {
+            options: Default::default(),
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -57,13 +65,21 @@ pub enum SpacePreset {
 }
 
 impl SpacePreset {
-    pub fn to_strategy(&self) -> Box<dyn SpaceStrategy + Send> {
+    pub fn to_strategy(&self) -> Box<dyn SpaceStrategy<2> + Send> {
         use SpacePreset::*;
         match self {
             Hilbert { size } => {
                 Box::new(HilbertSpaceStrategy::from_size(*size))
             }
-            Line { length } => Box::new(LineSpaceStrategy::new(*length)),
+            Line { length } => Box::new(SpaceStrategyAdapter::new(
+                LineSpaceStrategy::new(*length),
+            )),
         }
+    }
+}
+
+impl Default for SpacePreset {
+    fn default() -> SpacePreset {
+        SpacePreset::Hilbert { size: 512 }
     }
 }
