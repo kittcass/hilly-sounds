@@ -1,0 +1,89 @@
+                    ________________________________
+
+                          CS 410: FINAL REPORT
+
+                     Cassaundra Smith & Kitt Zwovic
+                    ________________________________
+
+
+Table of Contents
+_________________
+
+1. Hilly Sounds
+2. Findings
+3. Future Work
+4. Conclusion
+
+
+#+date June 6th, 2022
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+1 Hilly Sounds
+==============
+
+  We implemented a proof-of-concept tool to remap audio data (which we
+  gave the somewhat whimsical name Hilly Sounds). The primary function
+  simply remaps audio data to a 2D pixel map and vice versa via a space
+  filling curve. As far as we are aware, the slightly silly realm of
+  transforming pixel data *into* audio with a space-filling curve has
+  not been explored before.
+
+  Our source code and presentation slides can be found on gitlab as well
+  as included with this report.
+
+  <https://gitlab.cecs.pdx.edu/hilly-sounds/hilly-sounds>
+
+
+2 Findings
+==========
+
+  We were especially interested in applying image based transforms and
+  mutations to the audio in hilbert space and listening to the effects.
+  In general the audio is very sensitive to even subtle mutations and
+  most transforms quickly tend to turn audio into just noise (though we
+  don't find the different veriaties of noise produced altogether
+  uninteresting).
+
+  We confirmed our expectations for trivial operations; some trivial
+  transforms of interest:
+  - Horizontal flip Reverses the audio.
+  - Blur Acts like a low pass filter (however with somewhat interesting
+    bleed from neighboring pixels which do not neighbor in audio form).
+  - Clone tool As could be expected, copies and blends different parts
+    of the original audio.
+
+
+3 Future Work
+=============
+
+  In the future, we'd like to explore applying more complex transforms
+  to the audio data before remapping with the space-filling curve,
+  including transforming to frequency domain.
+
+  We would also like to explore more complex transforms from visual data
+  to audio which could try and smooth discontuities and make applying
+  transforms less noisy, or even discard the curve entirely and explore
+  using contours and edges to drive parameters of a synthesizer.
+
+  We also thought of a number of applications for the technique as it
+  is, which we'd like to explore further:
+
+  - As a visualization technique to use in an interactive application,
+    such as a looper, which could for example allow segments of audio to
+    be interactively re-arranged on a 2D grid. A challenge with this
+    application is, we think it would be desirable for the hilbert
+    squares to be aligned with an arbitrary tempo, which would require
+    resampling the audio data such that samples/beat is a power of two.
+  - Similarly, as a basis for procedural audio visualization videos.
+  - As a steganographic technique.
+  - As a basis for an audio glitch effect.
+
+
+4 Conclusion
+============
+
+  This was a very fun and light hearted exploratory project, and we look
+  forward to further playing with and extending the basis we implemented
+  in this class together!
