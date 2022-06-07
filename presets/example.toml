@@ -9,4 +9,4 @@ value = 0.8
 strategy = "hilbert"
 
 [space.options]
-size = 1024
+size = 2048
